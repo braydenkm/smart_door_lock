@@ -31,14 +31,14 @@ enum Request {
 
 
 // VARIABLES / CONSANTS
-const int LED = 13;
-const int TEST_INPUT = 2;
-const int MOTOR_RED = 5;
-const int MOTOR_BLACK = 6;
-const int MOTOR_SPIN_TIME = 3000; // TODO Figure out actual time required.
-const int STATE_ADDRESS = 0;
-
 State lock_state;
+
+#define LED               13
+#define TEST_INPUT        2
+#define MOTOR_RED         5
+#define MOTOR_BLACK       6
+#define MOTOR_SPIN_TIME   3000    // TODO Figure out actual time required.
+#define STATE_ADDRESS     0
 
 
 // FUNCTIONS
@@ -163,8 +163,12 @@ void init_bluetooth() {
 // Debugging text.
 // Prints out digital I/O and state.
 void debug_text() {
-  Serial.print("in: ");
-  Serial.print(digitalRead(TEST_INPUT));
-  Serial.print(", state: ");
-  Serial.println(lock_state);
+  String temp0, temp1, temp2, temp3;
+  temp0 = "in: ";
+  temp1 = String(digitalRead(TEST_INPUT));
+  temp2 = ", state: ";
+  temp3 = String(lock_state);
+  
+  String debug_output = temp0 + temp1 +temp2 + temp3;
+  Serial.println(debug_output);
 }
