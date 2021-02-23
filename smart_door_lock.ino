@@ -11,6 +11,10 @@ Group 14
   Brayden Martin    - 11232114 - bkm257
 */
 
+// LIBRARIES
+#include <EEPROM.h>   // For storing non-volatile data.
+
+
 // STRUCTS / ENUM
 enum State {
   LOCKED,
@@ -26,26 +30,47 @@ enum Request {
 };
 
 
-// VARIABLES
+// VARIABLES / CONSANTS
+const int LED = 13;
+const int TEST_INPUT = 2;
+const int MOTOR_RED = 5;
+const int MOTOR_BLACK = 6;
+const int MOTOR_SPIN_TIME = 3000; // TODO Figure out actual time required.
+const int STATE_ADDRESS = 0;
+
 State lock_state;
-const int motor_red = 5;
-const int motor_black = 6;
-const int motor_spin_time = 3000; // TODO Figure out actual time required.
 
 
 // FUNCTIONS
 // Set up device.
 void setup() {
-  lock_state = LOCKED;
+  // Set baud rate for debugging.
+  Serial.begin(9600);
+
+  // Set pin directions.
+  pinMode(TEST_INPUT, INPUT);
+  pinMode(MOTOR_RED, OUTPUT);
+  pinMode(MOTOR_BLACK, OUTPUT);
+  pinMode(LED, OUTPUT);
+
+  // Initialize bluetooth.
   init_bluetooth();
-  pinMode(motor_red, OUTPUT);
-  pinMode(motor_black, OUTPUT);
+
+  // Load default UNLOCKED state.
+  lock_state = UNLOCKED;
+  
+  // Load state from memory if available.
+  int stored_state = -1;
+  EEPROM.get(STATE_ADDRESS, stored_state);
+  if (0 <= stored_state && stored_state <= 3)
+    lock_state = stored_state;
 }
 
 
 // Main loop.
 // Enter state function for the matching lock_state.
 void loop() {
+  debug_text();
   switch(lock_state) {
     case LOCKED:    locked();     break;
     case LOCKING:   locking();    break;
@@ -58,7 +83,7 @@ void loop() {
 // Locked state.
 // Loop through this function while lock_state == locked.
 void locked() {
-  // TODO check for bluetooth unlock request.
+  digitalWrite(LED, HIGH);
   if (bluetooth_request() == UNLOCK)
     lock_state = UNLOCKING;
 }
@@ -68,58 +93,63 @@ void locked() {
 // Loop through this function while lock_state == locking.
 void locking() {
   // Spin the motor to unlock.
-  digitalWrite(motor_red, HIGH);
-  digitalWrite(motor_black, LOW);
+  digitalWrite(MOTOR_RED, HIGH);
+  digitalWrite(MOTOR_BLACK, LOW);
   
   // Wait 3 seconds.
-  delay(motor_spin_time);
+  delay(MOTOR_SPIN_TIME);
 
   // Stop the motor.
-  digitalWrite(motor_red, LOW);
+  digitalWrite(MOTOR_RED, LOW);
 
   // TODO visual and audio feedback.
 
   lock_state = LOCKED;
+  EEPROM.put(STATE_ADDRESS, LOCKED);
 }
 
 
 // Unlocked state.
 // Loop through this function while lock_state == unlocked.
 void unlocked() {
-  // TODO check for bluetooth lock request.
+  digitalWrite(LED, LOW);
   if (bluetooth_request() == LOCK)
     lock_state = LOCKING;
 }
 
 
 // Unlocking state.
-// Loop through this function while lock_state == unlockingd.
+// Loop through this function while lock_state == unlocking.
 void unlocking() {
   // Spin the motor to unlock.
-  digitalWrite(motor_red, LOW);
-  digitalWrite(motor_black, HIGH);
+  digitalWrite(MOTOR_RED, LOW);
+  digitalWrite(MOTOR_BLACK, HIGH);
   
   // Wait 3 seconds.
-  delay(motor_spin_time);
+  delay(MOTOR_SPIN_TIME);
   
   // Stop the motor.
-  digitalWrite(motor_black, LOW);
+  digitalWrite(MOTOR_BLACK, LOW);
 
   // TODO visual and audio feedback.
 
   lock_state = UNLOCKED;
+  EEPROM.put(STATE_ADDRESS, UNLOCKED);
 }
 
 
 // Check for bluetooth requests and return result.
 enum Request bluetooth_request() {
-  // TODO (TEMP), replace with working conditions after bluetooth is set-up.
-  bool locking_condition = false;
-  bool unlocking_condition = false;
-  if (locking_condition)
-    return LOCK;
-  if (unlocking_condition)
-    return UNLOCK;
+  if (lock_state == LOCKED) {
+    // TODO replace with checking bluetooth.
+    if (digitalRead(TEST_INPUT) == HIGH)
+      return UNLOCK;
+  }
+  if (lock_state == UNLOCKED) {
+    // TODO replace with checking bluetooth.
+    if (digitalRead(TEST_INPUT) == HIGH)
+      return LOCK;
+  }
   return NONE;
 }
 
@@ -127,4 +157,14 @@ enum Request bluetooth_request() {
 // Initializes the bluetooth module.
 void init_bluetooth() {
   // TODO set-up bluetooth.
+}
+
+
+// Debugging text.
+// Prints out digital I/O and state.
+void debug_text() {
+  Serial.print("in: ");
+  Serial.print(digitalRead(TEST_INPUT));
+  Serial.print(", state: ");
+  Serial.println(lock_state);
 }
