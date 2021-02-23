@@ -163,12 +163,7 @@ void init_bluetooth() {
 // Debugging text.
 // Prints out digital I/O and state.
 void debug_text() {
-  String temp0, temp1, temp2, temp3;
-  temp0 = "in: ";
-  temp1 = String(digitalRead(TEST_INPUT));
-  temp2 = ", state: ";
-  temp3 = String(lock_state);
-  
-  String debug_output = temp0 + temp1 +temp2 + temp3;
-  Serial.println(debug_output);
+  String debug_string =
+    "in: " + String(digitalRead(TEST_INPUT)) + ", state: " + String(lock_state);
+  Serial.println(debug_string);
 }
