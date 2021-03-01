@@ -37,7 +37,7 @@ State lock_state;
 #define TEST_INPUT        2
 #define MOTOR_RED         5
 #define MOTOR_BLACK       6
-#define MOTOR_SPIN_TIME   3000    // TODO Figure out actual time required.
+#define MOTOR_SPIN_TIME   8000    // TODO Figure out actual time required.
 #define STATE_ADDRESS     0
 
 
@@ -48,10 +48,10 @@ void setup() {
   Serial.begin(9600);
 
   // Set pin directions.
-  pinMode(TEST_INPUT, INPUT);
-  pinMode(MOTOR_RED, OUTPUT);
-  pinMode(MOTOR_BLACK, OUTPUT);
-  pinMode(LED, OUTPUT);
+  pinMode(MOTOR_RED,    OUTPUT);
+  pinMode(MOTOR_BLACK,  OUTPUT);
+  pinMode(LED,          OUTPUT);
+  pinMode(TEST_INPUT,   INPUT);
 
   // Initialize bluetooth.
   init_bluetooth();
@@ -94,7 +94,7 @@ void locked() {
 void locking() {
   // Spin the motor to unlock.
   digitalWrite(MOTOR_RED, HIGH);
-  digitalWrite(MOTOR_BLACK, LOW);
+//  digitalWrite(MOTOR_BLACK, LOW);
   
   // Wait 3 seconds.
   delay(MOTOR_SPIN_TIME);
@@ -122,7 +122,7 @@ void unlocked() {
 // Loop through this function while lock_state == unlocking.
 void unlocking() {
   // Spin the motor to unlock.
-  digitalWrite(MOTOR_RED, LOW);
+//  digitalWrite(MOTOR_RED, LOW);
   digitalWrite(MOTOR_BLACK, HIGH);
   
   // Wait 3 seconds.
