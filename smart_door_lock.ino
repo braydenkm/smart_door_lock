@@ -34,10 +34,11 @@ enum Request {
 State lock_state;
 
 #define LED               13
-#define TEST_INPUT        2
-#define MOTOR_RED         5
-#define MOTOR_BLACK       6
-#define MOTOR_SPIN_TIME   8000    // TODO Figure out actual time required.
+#define TEST_INPUT        6
+#define MOTOR_ENABLE      4
+#define MOTOR_RED         3
+#define MOTOR_BLACK       2
+#define MOTOR_SPIN_TIME   2000    // TODO Figure out actual time required.
 #define STATE_ADDRESS     0
 
 
@@ -48,6 +49,7 @@ void setup() {
   Serial.begin(9600);
 
   // Set pin directions.
+  pinMode(MOTOR_ENABLE, OUTPUT);
   pinMode(MOTOR_RED,    OUTPUT);
   pinMode(MOTOR_BLACK,  OUTPUT);
   pinMode(LED,          OUTPUT);
@@ -62,8 +64,14 @@ void setup() {
   // Load state from memory if available.
   int stored_state = -1;
   EEPROM.get(STATE_ADDRESS, stored_state);
-  if (0 <= stored_state && stored_state <= 3)
-    lock_state = stored_state;
+  if (0 <= stored_state && stored_state <= 3){
+    switch(stored_state) {
+      case 0: lock_state = LOCKED;     break;
+      case 1: lock_state = LOCKING;    break;
+      case 2: lock_state = UNLOCKED;   break;
+      case 3: lock_state = UNLOCKING;  break;
+    }
+  }
 }
 
 
@@ -93,13 +101,14 @@ void locked() {
 // Loop through this function while lock_state == locking.
 void locking() {
   // Spin the motor to unlock.
+  digitalWrite(MOTOR_ENABLE, HIGH);
   digitalWrite(MOTOR_RED, HIGH);
-//  digitalWrite(MOTOR_BLACK, LOW);
   
   // Wait 3 seconds.
   delay(MOTOR_SPIN_TIME);
 
   // Stop the motor.
+  digitalWrite(MOTOR_ENABLE, LOW);
   digitalWrite(MOTOR_RED, LOW);
 
   // TODO visual and audio feedback.
@@ -122,13 +131,14 @@ void unlocked() {
 // Loop through this function while lock_state == unlocking.
 void unlocking() {
   // Spin the motor to unlock.
-//  digitalWrite(MOTOR_RED, LOW);
+  digitalWrite(MOTOR_ENABLE, HIGH);
   digitalWrite(MOTOR_BLACK, HIGH);
   
   // Wait 3 seconds.
   delay(MOTOR_SPIN_TIME);
   
   // Stop the motor.
+  digitalWrite(MOTOR_ENABLE, LOW);
   digitalWrite(MOTOR_BLACK, LOW);
 
   // TODO visual and audio feedback.
