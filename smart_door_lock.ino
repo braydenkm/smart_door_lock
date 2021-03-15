@@ -2,7 +2,7 @@
 CME/EE 495 - Capstone Design
 Bluetooth Smart Door Lock
 Created:      22.02.2021
-Last Updated: 22.02.2021 
+Last Updated: 15.03.2021 
 
 Group 14
   Jackson Romanchuk - 11233901 - jwr920
@@ -12,7 +12,8 @@ Group 14
 */
 
 // LIBRARIES
-#include <EEPROM.h>   // For storing non-volatile data.
+#include <EEPROM.h>           // Storing non-volatile data.
+#include <SoftwareSerial.h>   // Serial communication of blutetooth.
 
 
 // STRUCTS / ENUM
@@ -30,11 +31,11 @@ enum Request {
 };
 
 
-// VARIABLES / CONSANTS
-State lock_state;
-
+// CONSTANTS
 #define LED               13
 #define TEST_INPUT        6
+#define RX                0
+#define TX                1
 #define MOTOR_ENABLE      4
 #define MOTOR_RED         3
 #define MOTOR_BLACK       2
@@ -42,21 +43,25 @@ State lock_state;
 #define STATE_ADDRESS     0
 
 
+// VARIABLES
+State lock_state;
+SoftwareSerial serial = SoftwareSerial(RX, TX);
+
+
 // FUNCTIONS
 // Set up device.
 void setup() {
-  // Set baud rate for debugging.
-  Serial.begin(9600);
+  // Initialize bluetooth.
+  init_bluetooth();
 
   // Set pin directions.
   pinMode(MOTOR_ENABLE, OUTPUT);
   pinMode(MOTOR_RED,    OUTPUT);
   pinMode(MOTOR_BLACK,  OUTPUT);
   pinMode(LED,          OUTPUT);
-  pinMode(TEST_INPUT,   INPUT);
-
-  // Initialize bluetooth.
-  init_bluetooth();
+  pinMode(TX,           OUTPUT);
+  pinMode(RX,           INPUT);
+//  pinMode(TEST_INPUT,   INPUT);
 
   // Load default UNLOCKED state.
   lock_state = UNLOCKED;
@@ -78,7 +83,7 @@ void setup() {
 // Main loop.
 // Enter state function for the matching lock_state.
 void loop() {
-  debug_text();
+//  debug_text();
   switch(lock_state) {
     case LOCKED:    locked();     break;
     case LOCKING:   locking();    break;
@@ -102,19 +107,21 @@ void locked() {
 void locking() {
   // Spin the motor to unlock.
   digitalWrite(MOTOR_ENABLE, HIGH);
+  digitalWrite(MOTOR_BLACK, LOW);
   digitalWrite(MOTOR_RED, HIGH);
   
   // Wait 3 seconds.
   delay(MOTOR_SPIN_TIME);
 
   // Stop the motor.
-  digitalWrite(MOTOR_ENABLE, LOW);
+  digitalWrite(MOTOR_BLACK, LOW);
   digitalWrite(MOTOR_RED, LOW);
+  digitalWrite(MOTOR_ENABLE, LOW);
 
   // TODO visual and audio feedback.
 
   lock_state = LOCKED;
-  EEPROM.put(STATE_ADDRESS, LOCKED);
+  EEPROM.put(STATE_ADDRESS, lock_state);
 }
 
 
@@ -133,40 +140,53 @@ void unlocking() {
   // Spin the motor to unlock.
   digitalWrite(MOTOR_ENABLE, HIGH);
   digitalWrite(MOTOR_BLACK, HIGH);
+  digitalWrite(MOTOR_RED, LOW);
   
   // Wait 3 seconds.
   delay(MOTOR_SPIN_TIME);
   
   // Stop the motor.
-  digitalWrite(MOTOR_ENABLE, LOW);
   digitalWrite(MOTOR_BLACK, LOW);
+  digitalWrite(MOTOR_RED, LOW);
+  digitalWrite(MOTOR_ENABLE, LOW);
 
   // TODO visual and audio feedback.
 
   lock_state = UNLOCKED;
-  EEPROM.put(STATE_ADDRESS, UNLOCKED);
+  EEPROM.put(STATE_ADDRESS, lock_state);
 }
 
 
 // Check for bluetooth requests and return result.
 enum Request bluetooth_request() {
-  if (lock_state == LOCKED) {
-    // TODO replace with checking bluetooth.
-    if (digitalRead(TEST_INPUT) == HIGH)
-      return UNLOCK;
-  }
-  if (lock_state == UNLOCKED) {
-    // TODO replace with checking bluetooth.
-    if (digitalRead(TEST_INPUT) == HIGH)
+//  if (digitalRead(TEST_INPUT) == HIGH) {
+//    serial.print(lock_state);
+//    return (lock_state == LOCKED) ? UNLOCK : LOCK;
+//  }
+
+  if (serial.available() != 0){
+    char c = serial.read();
+    if (c == 'a') {
+      // Clear the buffer.
+      while(serial.available() != 0)
+        serial.read();
+      serial.print(lock_state);
+      if (lock_state == LOCKED) return UNLOCK;
       return LOCK;
+    }
   }
+      
   return NONE;
 }
 
 
 // Initializes the bluetooth module.
 void init_bluetooth() {
-  // TODO set-up bluetooth.
+  // Set baud rate for debugging.
+//  Serial.begin(9600);
+
+  // Set baud rate for serial port.
+  serial.begin(9600);
 }
 
 
