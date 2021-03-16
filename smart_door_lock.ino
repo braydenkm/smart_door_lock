@@ -101,7 +101,7 @@ void locked() {
   if (bluetooth_request() == UNLOCK){
     lock_state = UNLOCKING;
     start_of_delay = millis();
-//    phone.print("UNLOCKING\n");
+    phone.print("UNLOCKING\n");
   }
 }
 
@@ -144,7 +144,6 @@ void unlocked() {
 // Unlocking state.
 // Loop through this function while lock_state == unlocking.
 void unlocking() {
-  phone.print("REACHED UNLOCKING\n");
   // Spin the motor to unlock.
   digitalWrite(MOTOR_BLACK, HIGH);
   digitalWrite(MOTOR_RED, LOW);
