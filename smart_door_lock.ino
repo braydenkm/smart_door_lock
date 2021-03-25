@@ -2,7 +2,7 @@
 CME/EE 495 - Capstone Design
 Bluetooth Smart Door Lock
 Created:      22.02.2021
-Last Updated: 15.03.2021 
+Last Updated: 25.03.2021 
 
 Group 14
   Jackson Romanchuk - 11233901 - jwr920
@@ -38,7 +38,6 @@ enum Request {
 #define MOTOR_BLACK       2
 #define TX                1
 #define RX                0
-#define TEST              6
 
 #define MOTOR_DELAY       2000    // milliseconds
 #define STATE_ADDRESS     0
@@ -63,7 +62,6 @@ void setup() {
   pinMode(LED,          OUTPUT);
   pinMode(TX,           OUTPUT);
   pinMode(RX,           INPUT);
-  pinMode(TEST,         INPUT);
 
   // Load default UNLOCKED state.
   lock_state = UNLOCKED;
@@ -167,15 +165,10 @@ void unlocking() {
 
 // Check for bluetooth requests and return result.
 enum Request bluetooth_request() {
-  if (digitalRead(TEST) == HIGH) {
-    return (lock_state == LOCKED) ? UNLOCK : LOCK;
-  }
-  
   // Leave if phone input is empty.
   if (phone.available() == 0) return NONE;
 
   // Read in character and clear the buffer.
-//  char character = 'a';
   char character = phone.read();
   while(phone.available() != 0) phone.read();
   
