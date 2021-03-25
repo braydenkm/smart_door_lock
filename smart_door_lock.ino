@@ -38,6 +38,7 @@ enum Request {
 #define MOTOR_BLACK       2
 #define TX                1
 #define RX                0
+#define TEST              6
 
 #define MOTOR_DELAY       2000    // milliseconds
 #define STATE_ADDRESS     0
@@ -62,6 +63,7 @@ void setup() {
   pinMode(LED,          OUTPUT);
   pinMode(TX,           OUTPUT);
   pinMode(RX,           INPUT);
+  pinMode(TEST,         INPUT);
 
   // Load default UNLOCKED state.
   lock_state = UNLOCKED;
@@ -101,7 +103,7 @@ void locked() {
   if (bluetooth_request() == UNLOCK){
     lock_state = UNLOCKING;
     start_of_delay = millis();
-    phone.print("UNLOCKING\n");
+    phone.print("UG\n");
   }
 }
 
@@ -123,7 +125,7 @@ void locking() {
     digitalWrite(LED, HIGH);
 
     lock_state = LOCKED;
-    phone.print("LOCKED\n");
+    phone.print("LD\n");
     EEPROM.put(STATE_ADDRESS, lock_state);
   }
 }
@@ -136,7 +138,7 @@ void unlocked() {
   if (bluetooth_request() == LOCK) {
     lock_state = LOCKING;
     start_of_delay = millis();
-    phone.print("LOCKING\n");
+    phone.print("LG\n");
   }
 }
 
@@ -157,7 +159,7 @@ void unlocking() {
     digitalWrite(MOTOR_ENABLE, LOW);
 
     lock_state = UNLOCKED;
-    phone.print("UNLOCKED\n");
+    phone.print("UD\n");
     EEPROM.put(STATE_ADDRESS, lock_state);
   }
 }
@@ -165,16 +167,24 @@ void unlocking() {
 
 // Check for bluetooth requests and return result.
 enum Request bluetooth_request() {
+  if (digitalRead(TEST) == HIGH) {
+    return (lock_state == LOCKED) ? UNLOCK : LOCK;
+  }
+  
   // Leave if phone input is empty.
   if (phone.available() == 0) return NONE;
 
   // Read in character and clear the buffer.
+//  char character = 'a';
   char character = phone.read();
   while(phone.available() != 0) phone.read();
   
   // Leave if phone input is not 'a'
-  if (character != 'a') return NONE;
-  
+  if (character != 'a') {
+    phone.print("ERR\n");
+    return NONE;
+  }
+  phone.print("PASS\n");
   // Return LOCK or UNLOCK depending on current state.
   return (lock_state == LOCKED) ? UNLOCK : LOCK;
 }
