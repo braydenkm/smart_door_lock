@@ -39,7 +39,7 @@ enum Request {
 #define TX                1
 #define RX                0
 
-#define MOTOR_DELAY       2000    // milliseconds
+#define MOTOR_DELAY       500    // milliseconds
 #define STATE_ADDRESS     0
 
 
@@ -170,9 +170,21 @@ enum Request bluetooth_request() {
 
   // Read in character and clear the buffer.
   char character = phone.read();
+//  char character[4]; 
+//  char passcode[] = "open";
+//  for (int i = 0; i < 4; i++) {
+//    character[i] = phone.read();
+//  }
   while(phone.available() != 0) phone.read();
   
   // Leave if phone input is not 'a'
+//  for (int i = 0; i < 4; i++) {
+//    if (character[i] != passcode[i]) {
+//      phone.print("ERR\n");
+//      phone.print(character[0] + character[1] + character[2] + character[3]);
+//      return NONE;
+//    }
+//  }
   if (character != 'a') {
     phone.print("ERR\n");
     return NONE;
