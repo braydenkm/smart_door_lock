@@ -2,7 +2,7 @@
 CME/EE 495 - Capstone Design
 Bluetooth Smart Door Lock
 Created:      22.02.2021
-Last Updated: 25.03.2021 
+Last Updated: 29.03.2021 
 
 Group 14
   Jackson Romanchuk - 11233901 - jwr920
@@ -101,7 +101,7 @@ void locked() {
   if (bluetooth_request() == UNLOCK){
     lock_state = UNLOCKING;
     start_of_delay = millis();
-    phone.print("UG\n");
+    phone.print("Unlocking\n");
   }
 }
 
@@ -123,7 +123,7 @@ void locking() {
     digitalWrite(LED, HIGH);
 
     lock_state = LOCKED;
-    phone.print("LD\n");
+    phone.print("Locked\n");
     EEPROM.put(STATE_ADDRESS, lock_state);
   }
 }
@@ -136,7 +136,7 @@ void unlocked() {
   if (bluetooth_request() == LOCK) {
     lock_state = LOCKING;
     start_of_delay = millis();
-    phone.print("LG\n");
+    phone.print("Locking\n");
   }
 }
 
@@ -157,7 +157,7 @@ void unlocking() {
     digitalWrite(MOTOR_ENABLE, LOW);
 
     lock_state = UNLOCKED;
-    phone.print("UD\n");
+    phone.print("Unlocked\n");
     EEPROM.put(STATE_ADDRESS, lock_state);
   }
 }
@@ -165,31 +165,39 @@ void unlocking() {
 
 // Check for bluetooth requests and return result.
 enum Request bluetooth_request() {
+  char passcode[] = "open";
+  const int passcode_length = sizeof(passcode) / sizeof(passcode[0]) - 1;
+  
   // Leave if phone input is empty.
   if (phone.available() == 0) return NONE;
 
-  // Read in character and clear the buffer.
-  char character = phone.read();
-//  char character[4]; 
-//  char passcode[] = "open";
-//  for (int i = 0; i < 4; i++) {
-//    character[i] = phone.read();
-//  }
-  while(phone.available() != 0) phone.read();
-  
-  // Leave if phone input is not 'a'
-//  for (int i = 0; i < 4; i++) {
-//    if (character[i] != passcode[i]) {
-//      phone.print("ERR\n");
-//      phone.print(character[0] + character[1] + character[2] + character[3]);
-//      return NONE;
-//    }
-//  }
-  if (character != 'a') {
-    phone.print("ERR\n");
+  // Leave if entered passcode is not same length.
+  delay(75);
+  if (phone.available() != passcode_length){
+    phone.print("Incorrect\n");
+    while(phone.available() != 0) phone.read();
     return NONE;
   }
-  phone.print("PASS\n");
+
+  // Read in character.
+  char attempt[] = "XXXX";
+  for (int i = 0; i < passcode_length; i++)
+    if (phone.peek() != -1)
+      attempt[i] = phone.read();
+
+  // Clear the buffer.
+  while(phone.available() != 0) phone.read();
+  phone.println(attempt);
+  
+  // Leave if phone input is not 'a'
+  for (int i = 0; i < passcode_length; i++) {
+    if (attempt[i] != passcode[i]) {
+      phone.print("Incorrect\n");
+      return NONE;
+    }
+  }
+  phone.print("Correct\n");
+  
   // Return LOCK or UNLOCK depending on current state.
   return (lock_state == LOCKED) ? UNLOCK : LOCK;
 }
