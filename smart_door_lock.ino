@@ -1,3 +1,5 @@
+
+
 /*
 CME/EE 495 - Capstone Design
 Bluetooth Smart Door Lock
@@ -13,7 +15,9 @@ Group 14
 
 // LIBRARIES
 #include <EEPROM.h>           // Storing non-volatile data.
-#include <SoftwareSerial.h>   // phone communication of blutetooth.
+#include <SoftwareSerial.h>   // Phone communication with blutetooth.
+#include <LowPower.h>         // Sleep mode.
+
 
 
 // ENUMS
@@ -35,11 +39,13 @@ enum Request {
 #define LED               13
 #define MOTOR_ENABLE      4
 #define MOTOR_RED         3
-#define MOTOR_BLACK       2
+#define MOTOR_BLACK       5
 #define TX                1
 #define RX                0
+#define INTERRUPT         2
 
 #define MOTOR_DELAY       500    // milliseconds
+#define AUTO_LOCK_TIME    3000
 #define STATE_ADDRESS     0
 
 
@@ -47,6 +53,7 @@ enum Request {
 State lock_state;
 SoftwareSerial phone = SoftwareSerial(RX, TX);
 unsigned long start_of_delay;
+unsigned long auto_lock_start;
 
 
 // FUNCTIONS
@@ -62,6 +69,8 @@ void setup() {
   pinMode(LED,          OUTPUT);
   pinMode(TX,           OUTPUT);
   pinMode(RX,           INPUT);
+  pinMode(INTERRUPT,    INPUT_PULLUP);
+  attachInterrupt(INTERRUPT, wakeUp, CHANGE);
 
   // Load default UNLOCKED state.
   lock_state = UNLOCKED;
@@ -80,6 +89,7 @@ void setup() {
 
   // Set start of delay
   start_of_delay = millis();
+  auto_lock_start = millis();
 }
 
 
@@ -93,6 +103,10 @@ void loop() {
     case UNLOCKING: unlocking();  break;
   }
 }
+
+
+// Handle the interrupt.
+void wakeUp() {}
 
 
 // Locked state.
@@ -125,6 +139,7 @@ void locking() {
     lock_state = LOCKED;
     phone.print("Locked\n");
     EEPROM.put(STATE_ADDRESS, lock_state);
+    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
   }
 }
 
@@ -133,7 +148,8 @@ void locking() {
 // Loop through this function while lock_state == unlocked.
 void unlocked() {
   digitalWrite(LED, LOW);
-  if (bluetooth_request() == LOCK) {
+  if ((bluetooth_request() == LOCK) ||
+      (millis() - auto_lock_start >= AUTO_LOCK_TIME)) {
     lock_state = LOCKING;
     start_of_delay = millis();
     phone.print("Locking\n");
@@ -157,6 +173,7 @@ void unlocking() {
     digitalWrite(MOTOR_ENABLE, LOW);
 
     lock_state = UNLOCKED;
+    auto_lock_start = millis();
     phone.print("Unlocked\n");
     EEPROM.put(STATE_ADDRESS, lock_state);
   }
@@ -175,6 +192,7 @@ enum Request bluetooth_request() {
   delay(75);
   if (phone.available() != passcode_length){
     phone.print("Incorrect\n");
+    phone.println(phone.peek());
     while(phone.available() != 0) phone.read();
     return NONE;
   }
