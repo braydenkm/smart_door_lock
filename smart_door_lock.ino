@@ -2,7 +2,7 @@
 CME/EE 495 - Capstone Design
 Bluetooth Smart Door Lock
 Created:      22.02.2021
-Last Updated: 29.03.2021 
+Last Updated: 13.04.2021 
 
 Group 14
   Jackson Romanchuk - 11233901 - jwr920
@@ -11,11 +11,11 @@ Group 14
   Brayden Martin    - 11232114 - bkm257
 */
 
+
 // LIBRARIES
 #include <EEPROM.h>           // Storing non-volatile data.
 #include <SoftwareSerial.h>   // Phone communication with blutetooth.
 #include <LowPower.h>         // Sleep mode.
-
 
 
 // ENUMS
@@ -41,7 +41,7 @@ enum Request {
 #define RX                0
 #define INTERRUPT         2
 
-#define MOTOR_DELAY       600     // 1/2 second
+#define MOTOR_DELAY       600     // 6/10 second
 #define AUTO_LOCK_TIME    5000    // 5 seconds
 #define STATE_ADDRESS     0
 
@@ -49,7 +49,7 @@ enum Request {
 // VARIABLES
 State lock_state;
 SoftwareSerial phone = SoftwareSerial(RX, TX);
-unsigned long start_of_delay;
+unsigned long motor_spin_start;
 unsigned long auto_lock_start;
 
 
@@ -84,8 +84,8 @@ void setup() {
   }
 
   // Set start of delay
-  start_of_delay = millis();
-  auto_lock_start = millis();
+  motor_spin_start  = millis();
+  auto_lock_start   = millis();
 }
 
 
@@ -105,39 +105,70 @@ void loop() {
 void wakeUp() {}
 
 
+// Put the MCU into sleep mode.
+void mcu_sleep() {
+  phone.print("Sleep\n");
+  LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
+}
+
+
+// Change into the new state and store state.
+void change_state(enum State new_state) {
+  lock_state = new_state;
+  switch(lock_state) {
+    case LOCKED:    phone.println("Locked");
+                    EEPROM.put(STATE_ADDRESS, lock_state);
+                    break;
+    case LOCKING:   phone.println("Locking");
+                    break;
+    case UNLOCKED:  phone.println("Unlocked");
+                    EEPROM.put(STATE_ADDRESS, lock_state);
+                    break;
+    case UNLOCKING: phone.println("Unlocking");
+                    break;
+  }
+}
+
+
+// Spin the motor in given direction.
+void spin_motor(enum Request direction) {
+  if (direction == NONE)      return;
+  if (direction == LOCK)      digitalWrite(MOTOR_BLACK, HIGH);
+  if (direction == UNLOCK)    digitalWrite(MOTOR_RED,   HIGH);
+  digitalWrite(MOTOR_ENABLE,  HIGH);
+}
+
+
+// Stop spinning the motor.
+void stop_motor() {
+  digitalWrite(MOTOR_BLACK,   LOW);
+  digitalWrite(MOTOR_RED,     LOW);
+  digitalWrite(MOTOR_ENABLE,  LOW);
+}
+
+
 // Locked state.
 // Loop through this function while lock_state == locked.
 void locked() {
   if (bluetooth_request() == UNLOCK){
-    lock_state = UNLOCKING;
-    start_of_delay = millis();
-    phone.print("Unlocking\n");
+    change_state(UNLOCKING);
+    motor_spin_start = millis();
   }
-  if (millis() - auto_lock_start >= AUTO_LOCK_TIME) {
-    phone.print("Sleep\n");
-    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
-  }
+  if (millis() - auto_lock_start >= AUTO_LOCK_TIME)
+    mcu_sleep();
 }
 
 
 // Locking state.
 // Loop through this function while lock_state == locking.
 void locking() {
-  // Spin the motor to unlock.
-  digitalWrite(MOTOR_BLACK, HIGH);
-  digitalWrite(MOTOR_ENABLE, HIGH);
+  spin_motor(LOCK);
   
   // Wait while motor spins.
-  if (millis() - start_of_delay >= MOTOR_DELAY) {
-    // Stop the motor.
-    digitalWrite(MOTOR_BLACK, LOW);
-    digitalWrite(MOTOR_ENABLE, LOW);
-
-    lock_state = LOCKED;
-    phone.println("Locked");
-    phone.println("Sleep");
-    EEPROM.put(STATE_ADDRESS, lock_state);
-    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
+  if (millis() - motor_spin_start >= MOTOR_DELAY) {
+    stop_motor();
+    change_state(LOCKED);
+    mcu_sleep();
   }
 }
 
@@ -145,11 +176,12 @@ void locking() {
 // Unlocked state.
 // Loop through this function while lock_state == unlocked.
 void unlocked() {
-  if ((bluetooth_request() == LOCK) || 
-      (millis() - auto_lock_start >= AUTO_LOCK_TIME)) {
-    lock_state = LOCKING;
-    start_of_delay = millis();
-    phone.print("Locking\n");
+  bool lock_request = bluetooth_request() == LOCK;
+  bool auto_lock_timeout = (millis() - auto_lock_start) >= AUTO_LOCK_TIME;
+  
+  if (lock_request || auto_lock_timeout) {
+    change_state(LOCKING);
+    motor_spin_start = millis();
   }
 }
 
@@ -157,20 +189,13 @@ void unlocked() {
 // Unlocking state.
 // Loop through this function while lock_state == unlocking.
 void unlocking() {
-  // Spin the motor to unlock.
-  digitalWrite(MOTOR_RED, HIGH);
-  digitalWrite(MOTOR_ENABLE, HIGH);
+  spin_motor(UNLOCK);
   
   // Wait while motor spins.
-  if (millis() - start_of_delay >= MOTOR_DELAY) {
-    // Stop the motor.
-    digitalWrite(MOTOR_RED, LOW);
-    digitalWrite(MOTOR_ENABLE, LOW);
-
-    lock_state = UNLOCKED;
+  if (millis() - motor_spin_start >= MOTOR_DELAY) {
+    stop_motor();
+    change_state(UNLOCKED);
     auto_lock_start = millis();
-    phone.print("Unlocked\n");
-    EEPROM.put(STATE_ADDRESS, lock_state);
   }
 }
 
@@ -192,8 +217,8 @@ enum Request bluetooth_request() {
     return NONE;
   }
 
-  // Read in character.
-  char attempt[] = "XXXX";
+  // Read in attempt passcode.
+  char attempt[passcode_length + 1];
   for (int i = 0; i < passcode_length; i++)
     if (phone.peek() != -1)
       attempt[i] = phone.read();
@@ -202,7 +227,7 @@ enum Request bluetooth_request() {
   while(phone.available() != 0) phone.read();
   phone.println(attempt);
   
-  // Leave if phone input is not 'a'
+  // Leave if passcode attempt != correct passcode.
   for (int i = 0; i < passcode_length; i++) {
     if (attempt[i] != passcode[i]) {
       phone.print("Incorrect\n");
